@@ -1,8 +1,4 @@
 
-	-- 0x88: Word for suggested target value
-	-- 0x7C: Starting cash values
-
-
 	function toBinary(n, l)
 
 		out		= ""
@@ -16,9 +12,6 @@
 		return string.format("%0".. (l and l or p) .."s", out)
 
 	end
-
-
-
 
 	function hexdump(str, showDec)
 
@@ -39,14 +32,11 @@
 		return out .. (showDec and ("\n".. out2) or "")
 	end
 
-
-
 	function string:getWord(ofs, l, signed)
 
 		return bytesToNumber(self:sub0(ofs, l and l or 4), signed and true or false)
 
 	end
-
 
 
 	-- s = start (0-ind), l = length
@@ -55,8 +45,6 @@
 		return self:sub(s + 1, l and (s + l) or nil)
 
 	end
-
-
 
 	function bytesToNumber(word, signed)
 
@@ -76,11 +64,17 @@
 
 	end
 
+	-- 0x7C: Starting cash values
+	-- 0x80: Salary base
+	-- 0x84: Lap bonus
+	-- 0x88: Suggested target value
+	
+	-- 0x8C: ??? start pointer
+	-- 0x90: District start pointer
+	-- 0x94: Square start pointer
+
 
 	function getDistrictData(data)
-		-- District start pointer is at 0x90-0x93
-		-- Square start pointer is at 0x94-0x97
-
 		-- Get data from <district start pointer> to <square start pointer - 1>
 		local districtPointer	= data:getWord(0x90)
 		local squarePointer		= data:getWord(0x94)
@@ -88,17 +82,12 @@
 		print(string.format("DP: %04X - SP: %04X", districtPointer, squarePointer))
 
 		return data:sub0(districtPointer, squarePointer - districtPointer)
-
-
-
 	end
 
 	function getSquareData(data)
 		local squarePointer		= data:getWord(0x94)
 
 		return data:sub0(squarePointer)
-
-
 	end
 
 

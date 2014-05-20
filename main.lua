@@ -52,7 +52,7 @@
 
 	function resizeMap()
 		local maxX, maxY	= 0, 0
-		local areaCenterX, areaCenterY = (windowW / 2) - 100, (windowH / 2)
+		local areaCenterX, areaCenterY = (windowW / 2) - 100, (windowH / 2) - 10
 
 		for k, v in pairs(squares) do
 			maxX	= math.max(maxX, math.abs(v['xPos']))
@@ -67,13 +67,21 @@
 		gridSize		= math.min(gridSizePotX, gridSizePotY)
 		gridScale		= gridSize / 64
 		mapBaseX		= 200 + areaCenterX - gridSize * .5
-		mapBaseY		= areaCenterY - gridSize * .5
+		mapBaseY		= 20  + areaCenterY - gridSize * .5
 	end
 
 	function loadMap(map)
 		fData			= love.filesystem.read(map)
 		squares			= parseSquares(getSquareData(fData))
 		districts		= parseDistricts(getDistrictData(fData))
+
+		mapVars         = {
+			name         = fData:sub0(8, 31):gsub("%z+$", ""),
+			startingCash = fData:getWord(0x7C),
+			salaryBase   = fData:getWord(0x80),
+			lapBonus     = fData:getWord(0x84),
+			targetAmount = fData:getWord(0x88)
+		};
 		
 		resizeMap()
 	end
@@ -160,8 +168,9 @@
 
 
 	function drawSquareDetails(square)
+		local dHeight = 240
 
-		love.graphics.rectangle("line", 10, 10, 190, 490)
+		love.graphics.rectangle("line", 10, dHeight, 190, windowH - (dHeight + 10))
 
 		if square['type'] == 18 then
 			destSquare	= square['extra']:byte(1)
@@ -171,20 +180,20 @@
 
 		end
 
-		love.graphics.print(string.format("%s\n%s", square['name'], SquareTypes[square['type']] and SquareTypes[square['type']]['name'] or "UNKNOWN"), 15, 15)
+		love.graphics.print(string.format("%s\n%s", square['name'], SquareTypes[square['type']] and SquareTypes[square['type']]['name'] or "UNKNOWN"), 15, dHeight + 1)
 
 
 		if square['type'] == 1 or (square['value'] ~= 0 or square['price'] ~= 0) then
-			love.graphics.print(string.format("Value: %d\nPrices: %d", square['value'], square['price']), 15, 55)
+			love.graphics.print(string.format("Value: %d\nPrices: %d", square['value'], square['price']), 15, dHeight + 45)
 		end
 
 		if square['type'] == 1 or square['type'] == 2 then
-			love.graphics.print(string.format("District %d (%s)", square['district'], districts[square['district']]['name']), 15, 95)
+			love.graphics.print(string.format("District %d (%s)", square['district'], districts[square['district']]['name']), 15, dHeight + 85)
 		end
 
-		love.graphics.print(square['moveMaskAll']:gsub("(%d+ %d+) ", "%1\n"):gsub("0", "- "), 15, 125)
+		love.graphics.print(square['moveMaskAll']:gsub("(%d+ %d+) ", "%1\n"):gsub("0", "- "), 15, dHeight + 115)
 
-		love.graphics.print(hexdump(square['extra']), 15, 400)
+		love.graphics.print(hexdump(square['extra']), 15, dHeight + 400)
 
 	end
 
@@ -199,7 +208,16 @@
 
 	end
 
+	function drawMapData()
+		love.graphics.rectangle("line", 10, 10, windowW - 120, 20)
+		love.graphics.print(mapVars.name, 13, 13)
 
+		love.graphics.rectangle("line", 10, 40, 190, 190)
+		love.graphics.print(string.format(
+			"Starting Cash: %d\n\nBase Salary: %d\nLap Bonus: %d\n\nSuggested Target: %d",
+			mapVars.startingCash, mapVars.salaryBase, mapVars.lapBonus, mapVars.targetAmount), 13, 43)
+
+	end
 
 	function drawSquare(square)
 
@@ -263,11 +281,10 @@
 		else
 
 			for k, v in pairs(squares) do
-
 				drawSquare(v)
-
 			end
 
+			drawMapData()
 			if crappyButton("Back", windowW - 100, 10, 90, 20) then
 				currentState	= "maplist"
 			end
