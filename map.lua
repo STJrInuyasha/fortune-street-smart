@@ -127,7 +127,7 @@
 			districtArray[dId]	= {
 				name		= dName,
 				color		= dColor,
-				}
+			}
 
 			print(string.format("%d: %-30s (id %d, col %d)", i, dName, dId, dColor))
 		end

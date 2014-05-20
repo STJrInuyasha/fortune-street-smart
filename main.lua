@@ -26,67 +26,65 @@
 
 
 	function love.load()
-		gridSize		= 50
-		gridScale		= gridSize / 64
-		mapBaseX		= 700 - gridSize * .5
-		mapBaseY		= 400 - gridSize * .5
-
-
 		local mapBaseDirectory	= "mapdata/"
 		mapDirectory	= love.filesystem.getDirectoryItems(mapBaseDirectory)
 		maps			= {}
 		for k, v in pairs(mapDirectory) do
 			local mapNum	= tonumber(v:sub(2, 3))
 			maps[mapNum]	= {
-				name	= love.filesystem.read(mapBaseDirectory .. v .. "/quest_en.txt"):gsub("[^\r\n]+\r\n[^\r\n]+\r\n([^\r\n]+)\r\n.+", "%1"),
+				name	= love.filesystem.read(mapBaseDirectory .. v .. "/quest_en.txt"):gsub("[^\r\n]+[\r\n]+[^\r\n]+[\r\n]+([^\r\n]+)[\r\n]+.+", "%1"),
 				easy	= mapBaseDirectory .. v .. "/ein_en",
 				normal	= mapBaseDirectory .. v .. "/bin_en"
-				}
+			}
 			print("Found map ".. mapNum ..", ".. maps[mapNum]['name'] ..": easy: ".. maps[mapNum]['easy'] .." - normal: ".. maps[mapNum]['normal'])
 		end
 
 
 		currentState	= "maplist"
 
-		mouseX, mouseY	= love.mouse.getPosition()
-
 		drawQueue		= {}
 
 		fData			= ""
 		squares			= {}
 
+		love.update()
 	end
 
-
-	function loadMap(map)
-		fData			= love.filesystem.read(map)
-		squares			= parseSquares(getSquareData(fData))
-		districts		= parseDistricts(getDistrictData(fData))
-
+	function resizeMap()
 		local maxX, maxY	= 0, 0
+		local areaCenterX, areaCenterY = (windowW / 2) - 100, (windowH / 2)
 
 		for k, v in pairs(squares) do
 			maxX	= math.max(maxX, math.abs(v['xPos']))
 			maxY	= math.max(maxY, math.abs(v['yPos']))
 		end
 
-		local gridSizePotX	= 500 / (maxX / 4 + 1)
-		local gridSizePotY	= 400 / (maxY / 4 + 1)
+		local gridSizePotX	= areaCenterX / (maxX / 4 + 1)
+		local gridSizePotY	= areaCenterY / (maxY / 4 + 1)
 
 		print(string.format("Grid vars: maxX %d, maxY %d, gSPX %.2f, gSPY %.2f", maxX, maxY, gridSizePotX, gridSizePotY))
 
 		gridSize		= math.min(gridSizePotX, gridSizePotY)
 		gridScale		= gridSize / 64
+		mapBaseX		= 200 + areaCenterX - gridSize * .5
+		mapBaseY		= areaCenterY - gridSize * .5
 	end
 
+	function loadMap(map)
+		fData			= love.filesystem.read(map)
+		squares			= parseSquares(getSquareData(fData))
+		districts		= parseDistricts(getDistrictData(fData))
+		
+		resizeMap()
+	end
 
 	function displayMaps()
 
-		love.graphics.print("Pick a map, yo.", 80, 50)
+		love.graphics.print("Pick a map, yo.", 80, 40)
 
 		for i, v in ipairs(maps) do
 
-			local yPos	= 50 + i * 30
+			local yPos	= 40 + i * 28
 
 			love.graphics.print(string.format("#%d: %s", i, v.name), 100, yPos + 2)
 			if crappyButton("Easy", 220, yPos, 100, 20) then
@@ -126,7 +124,7 @@
 		love.graphics.setColor(255, 255, 255)
 		love.graphics.printf(label, x, y + (h - 15) / 2, w, "center")
 
-		return inBox and love.mouse.isDown('l')
+		return inBox and mouseBTL
 
 	end
 
@@ -240,12 +238,22 @@
 
 	function love.update(dt)
 
-		mouseX, mouseY	= love.mouse.getPosition()
-
+		mouseX, mouseY	 = love.mouse.getPosition()
+		mouseBTL         = love.mouse.isDown("l")
+		windowW, windowH = love.window.getDimensions()
 
 	end
 
+	function love.resize(w,h)
+		windowW = w
+		windowH = h
 
+		if currentState == "maplist" then
+			return
+		end
+
+		resizeMap()
+	end
 
 	function love.draw()
 
@@ -260,7 +268,7 @@
 
 			end
 
-			if crappyButton("Back", 1100, 10, 90, 20) then
+			if crappyButton("Back", windowW - 100, 10, 90, 20) then
 				currentState	= "maplist"
 			end
 		end
