@@ -1,68 +1,5 @@
 
-	function toBinary(n, l)
-
-		out		= ""
-		while n >= 1 do
-			out	= math.floor(math.fmod(n, 2)) .. out
-			n	= math.floor(n / 2)
-		end
-
-		local p	= math.ceil(out:len() / 8) * 8
-
-		return string.format("%0".. (l and l or p) .."s", out)
-
-	end
-
-	function hexdump(str, showDec)
-
-		local len	= str:len()
-		local out	= ""
-		local out2	= ""
-		for i = 1, len do
-			out		= out .. string.format("%02x ", str:byte(i))
-			if (i % 4 == 1) then
-				out2	= out2 .. string.format("%11d  ", str:getWord(i - 1))
-			end
-			if (i % 4 == 0) then
-				out	= out .. " "
-			end
-
-		end
-
-		return out .. (showDec and ("\n".. out2) or "")
-	end
-
-	function string:getWord(ofs, l, signed)
-
-		return bytesToNumber(self:sub0(ofs, l and l or 4), signed and true or false)
-
-	end
-
-
-	-- s = start (0-ind), l = length
-	function string:sub0(s, l)
-
-		return self:sub(s + 1, l and (s + l) or nil)
-
-	end
-
-	function bytesToNumber(word, signed)
-
-		local n, i	= 0
-		local l	= word:len()
-		for i = 1, l do
-			n	= n + word:byte(i) * 256 ^ (i - 1)
-		end
-
-		if signed then
-			if n >= (2 ^ (l * 8 - 1)) then
-				n	= n - (2 ^ (l * 8))
-			end
-		end
-
-		return n
-
-	end
+	require "binarystring"
 
 	-- 0x7C: Starting cash values
 	-- 0x80: Salary base
@@ -83,6 +20,7 @@
 
 		return data:sub0(districtPointer, squarePointer - districtPointer)
 	end
+
 
 	function getSquareData(data)
 		local squarePointer		= data:getWord(0x94)
@@ -106,62 +44,58 @@
 		local districtArray	= {}
 
 		for i = 1, districts do
-
 			local dData		= data:sub0(40 * (i - 1), 40)
 
 			-- Grab the name and cut off the nulls
 			local dName		= dData:sub0(0, 30):gsub("%z+$", "")
 			local dId		= dData:byte(31)
 			local dColor	= dData:byte(32)
+
+			local dProperties = {}
+			for j = 1, 8 do
+				local dProp = dData:byte(32 + j)
+				if dProp ~= 0xFF then
+					dProperties[j] = dProp
+				end
+			end
+
 			districtArray[dId]	= {
+				id			= dId,
 				name		= dName,
 				color		= dColor,
+				properties	= dProperties
 			}
 
 			print(string.format("%d: %-30s (id %d, col %d)", i, dName, dId, dColor))
 		end
 
 		return districtArray
-
 	end
-
 
 
 	function parseSquares(data)
 
 		local len		= data:len()
 		local squares	= len / 76
-		print(squares)
 
-		local squareA	= {}
+		local squareArray	= {}
 
 		for i = 1, squares do
 			local sData		= data:sub0(76 * (i - 1), 76)
+
 			local sName		= sData:sub0(0, 27):gsub("%z+$", "")
+			if sName == "" then sName = "<null>" end
+
 			local sExtra	= sData:sub0(28, 4)
+			local sDest		= sData:getWord(28, 1) -- Destination square for warps
+			local sVariant	= sData:getWord(30, 1) -- Square variant; for warp color, etc
+			local sZPos		= sData:getWord(31, 1) -- For maps with multiple floors, 0 is 1F, 1 is B1, etc
 			local sType		= sData:getWord(32, 1)
 			local sDistrict	= sData:getWord(33, 1)
 			local sPrice	= sData:getWord(34, 2)
 			local sValue	= sData:getWord(36, 4)
 			local sXPos		= sData:getWord(40, 1, true)
 			local sYPos		= sData:getWord(41, 1, true)
-
-
-			local sUnk		= sData:sub0(32)
-			if sName == "" then
-				sName		= "<null>"
-			end
-			print(string.format("%2x: %-28s (Vl: %4d; Pc: %4d; Type: %2x; D: %2x; X: %3d; Y: %3d)",
-				i - 1,
-				sName,
-				sValue,
-				sPrice,
-				sType,
-				sDistrict,
-				sXPos,
-				sYPos
-				))
-			-- print(hexdump(sUnk, true))
 
 			-- Sorry if you figured this out already, but I thought this over while laying in bed
 			--   sleepless.  I don't feel like touching your code so I'll just leave this long
@@ -194,40 +128,28 @@
 				binOut	= binOut .. toBinary(sData:getWord(42 + 2 * uDump + uDumpB, 1), 8)
 			end
 
-			squareA[i - 1]	= {
+			squareArray[i - 1]	= {
 				id			= i - 1,
-				name		= sName,
-				value		= sValue,
-				price		= sPrice,
-				type		= sType,
-				district	= sDistrict,
 				xPos		= sXPos,
 				yPos		= sYPos,
+				zPos		= sZPos,
+
+				name		= sName,
+				type		= sType,
+				variant		= sVariant,
+
+				value		= sValue,
+				price		= sPrice,
+				district	= sDistrict,
+				destination	= sDest,
+
 				moveMask	= binOut,
 				moveMaskAll	= sFullMoveMask,
-				extra		= sExtra
-				}
 
+				extra		= sExtra
+			}
 
 		end
 
-		return squareA
+		return squareArray
 	end
-
-
-
---	local mfile	= io.open("m01-bin_en", "rb");
---	local fdata	= mfile:read("*all");
-
-
---	local mword	= fdata:getWord(0x94)
-
-
---	local test	= string.char(4, 1, 0, 0)
-
---	test	= test:getWord(0)
-
---	parseDistricts(getDistrictData(fdata))
-
---	squares	= parseSquares(getSquareData(fdata))
-
